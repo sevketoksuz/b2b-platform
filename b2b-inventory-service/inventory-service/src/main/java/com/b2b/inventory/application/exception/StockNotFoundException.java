@@ -1,0 +1,8 @@
+package com.b2b.inventory.application.exception;
+
+public class StockNotFoundException extends RuntimeException {
+
+    public StockNotFoundException(String message) {
+        super(message);
+    }
+}

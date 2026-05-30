@@ -1,0 +1,18 @@
+package com.b2b.inventory.application.query.dto;
+
+import com.b2b.inventory.domain.enumtype.ProductStatus;
+import com.b2b.inventory.domain.enumtype.ProductUnit;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record ProductListItemResult(
+        UUID id,
+        UUID companyId,
+        String sku,
+        String name,
+        ProductUnit unit,
+        ProductStatus status,
+        LocalDateTime createdAt
+) {
+}
