@@ -4,11 +4,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-public record OrderCreatedEvent(
+public record OrderConfirmedEvent(
         UUID orderId,
         UUID buyerCompanyId,
         UUID sellerCompanyId,
-        List<OrderCreatedEventItem> items,
+        List<OrderConfirmedEventItem> items,
         LocalDateTime createdAt
 ) {
 }

@@ -6,6 +6,9 @@ import java.util.UUID;
 public record OrderConfirmedEventItem(
         UUID productId,
         String productName,
-        BigDecimal quantity
+        BigDecimal quantity,
+        BigDecimal unitPriceAmount,
+        String currency,
+        BigDecimal lineTotalAmount
 ) {
 }

@@ -2,9 +2,8 @@ package com.b2b.order.application.command.handler;
 
 import com.b2b.order.application.command.dto.ChangeOrderStatusResult;
 import com.b2b.order.application.command.dto.ConfirmOrderCommand;
-import com.b2b.order.application.exception.InventoryClientException;
 import com.b2b.order.application.exception.OrderNotFoundException;
-import com.b2b.order.application.port.out.InventoryClientPort;
+import com.b2b.order.application.port.out.OrderEventPublisherPort;
 import com.b2b.order.application.port.out.OrderRepositoryPort;
 import com.b2b.order.domain.enumtype.OrderStatus;
 import com.b2b.order.domain.exception.OrderDomainException;
@@ -14,6 +13,8 @@ import com.b2b.order.domain.valueobject.Money;
 import com.b2b.order.domain.valueobject.OrderQuantity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,22 +28,22 @@ import static org.mockito.Mockito.*;
 class ConfirmOrderCommandHandlerTest {
 
     private OrderRepositoryPort orderRepositoryPort;
-    private InventoryClientPort inventoryClientPort;
+    private OrderEventPublisherPort orderEventPublisherPort;
     private ConfirmOrderCommandHandler handler;
 
     @BeforeEach
     void setUp() {
         orderRepositoryPort = mock(OrderRepositoryPort.class);
-        inventoryClientPort = mock(InventoryClientPort.class);
+        orderEventPublisherPort = mock(OrderEventPublisherPort.class);
 
         handler = new ConfirmOrderCommandHandler(
                 orderRepositoryPort,
-                inventoryClientPort
+                orderEventPublisherPort
         );
     }
 
     @Test
-    void shouldConfirmOrderAndDecreaseStockWhenOrderIsPending() {
+    void shouldConfirmOrderAndPublishOrderConfirmedEventWhenOrderIsPending() {
         UUID orderId = UUID.randomUUID();
         UUID buyerCompanyId = UUID.randomUUID();
         UUID sellerCompanyId = UUID.randomUUID();
@@ -67,70 +68,42 @@ class ConfirmOrderCommandHandlerTest {
         assertNotNull(result.confirmedAt());
 
         verify(orderRepositoryPort).findById(orderId);
-        verify(inventoryClientPort).decreaseStock(
-                sellerCompanyId,
-                productId,
-                new BigDecimal("2"),
-                "Order confirmed: " + orderId
-        );
         verify(orderRepositoryPort).save(any(Order.class));
+
+        ArgumentCaptor<Order> eventOrderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderEventPublisherPort).publishOrderConfirmed(eventOrderCaptor.capture());
+
+        Order publishedOrder = eventOrderCaptor.getValue();
+
+        assertEquals(orderId, publishedOrder.getId());
+        assertEquals(buyerCompanyId, publishedOrder.getBuyerCompanyId());
+        assertEquals(sellerCompanyId, publishedOrder.getSellerCompanyId());
+        assertEquals(OrderStatus.CONFIRMED, publishedOrder.getStatus());
+        assertNotNull(publishedOrder.getConfirmedAt());
     }
 
     @Test
-    void shouldDecreaseStockForEachOrderItem() {
+    void shouldSaveOrderBeforePublishingOrderConfirmedEvent() {
         UUID orderId = UUID.randomUUID();
         UUID buyerCompanyId = UUID.randomUUID();
         UUID sellerCompanyId = UUID.randomUUID();
-        UUID firstProductId = UUID.randomUUID();
-        UUID secondProductId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
 
-        Order order = Order.create(
-                buyerCompanyId,
-                sellerCompanyId,
-                List.of(
-                        orderItem(firstProductId, "Gaming Mouse", 2, "750"),
-                        orderItem(secondProductId, "Keyboard", 1, "1000")
-                )
-        );
-
-        Order restoredOrder = Order.restore(
-                orderId,
-                buyerCompanyId,
-                sellerCompanyId,
-                order.getItems(),
-                OrderStatus.PENDING,
-                order.getTotalAmount(),
-                order.getCreatedAt(),
-                order.getUpdatedAt(),
-                null,
-                null,
-                null
-        );
+        Order order = pendingOrder(orderId, buyerCompanyId, sellerCompanyId, productId);
 
         when(orderRepositoryPort.findById(orderId))
-                .thenReturn(Optional.of(restoredOrder));
+                .thenReturn(Optional.of(order));
 
         when(orderRepositoryPort.save(any(Order.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         handler.handle(new ConfirmOrderCommand(orderId));
 
-        verify(inventoryClientPort).decreaseStock(
-                sellerCompanyId,
-                firstProductId,
-                new BigDecimal("2"),
-                "Order confirmed: " + orderId
-        );
+        InOrder inOrder = inOrder(orderRepositoryPort, orderEventPublisherPort);
 
-        verify(inventoryClientPort).decreaseStock(
-                sellerCompanyId,
-                secondProductId,
-                new BigDecimal("1"),
-                "Order confirmed: " + orderId
-        );
-
-        verify(inventoryClientPort, times(2))
-                .decreaseStock(any(), any(), any(), any());
+        inOrder.verify(orderRepositoryPort).findById(orderId);
+        inOrder.verify(orderRepositoryPort).save(any(Order.class));
+        inOrder.verify(orderEventPublisherPort).publishOrderConfirmed(any(Order.class));
     }
 
     @Test
@@ -148,12 +121,12 @@ class ConfirmOrderCommandHandlerTest {
         assertEquals("Order not found with id: " + orderId, exception.getMessage());
 
         verify(orderRepositoryPort).findById(orderId);
-        verify(inventoryClientPort, never()).decreaseStock(any(), any(), any(), any());
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderConfirmed(any(Order.class));
     }
 
     @Test
-    void shouldThrowExceptionAndNotDecreaseStockWhenOrderIsNotPending() {
+    void shouldThrowExceptionAndNotPublishEventWhenOrderIsNotPending() {
         UUID orderId = UUID.randomUUID();
         UUID buyerCompanyId = UUID.randomUUID();
         UUID sellerCompanyId = UUID.randomUUID();
@@ -172,41 +145,8 @@ class ConfirmOrderCommandHandlerTest {
         assertEquals("Only pending orders can be confirmed.", exception.getMessage());
 
         verify(orderRepositoryPort).findById(orderId);
-        verify(inventoryClientPort, never()).decreaseStock(any(), any(), any(), any());
         verify(orderRepositoryPort, never()).save(any(Order.class));
-    }
-
-    @Test
-    void shouldThrowExceptionAndNotSaveOrderWhenInventoryClientFails() {
-        UUID orderId = UUID.randomUUID();
-        UUID buyerCompanyId = UUID.randomUUID();
-        UUID sellerCompanyId = UUID.randomUUID();
-        UUID productId = UUID.randomUUID();
-
-        Order order = pendingOrder(orderId, buyerCompanyId, sellerCompanyId, productId);
-
-        when(orderRepositoryPort.findById(orderId))
-                .thenReturn(Optional.of(order));
-
-        doThrow(new InventoryClientException("Inventory Service stock decrease request failed."))
-                .when(inventoryClientPort)
-                .decreaseStock(any(), any(), any(), any());
-
-        InventoryClientException exception = assertThrows(
-                InventoryClientException.class,
-                () -> handler.handle(new ConfirmOrderCommand(orderId))
-        );
-
-        assertEquals("Inventory Service stock decrease request failed.", exception.getMessage());
-
-        verify(orderRepositoryPort).findById(orderId);
-        verify(inventoryClientPort).decreaseStock(
-                sellerCompanyId,
-                productId,
-                new BigDecimal("2"),
-                "Order confirmed: " + orderId
-        );
-        verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderConfirmed(any(Order.class));
     }
 
     private Order pendingOrder(

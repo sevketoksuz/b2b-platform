@@ -4,6 +4,6 @@ import com.b2b.order.domain.model.Order;
 
 public interface OrderEventPublisherPort {
 
-    void publishOrderCreated(Order order);
+    void publishOrderConfirmed(Order order);
 
 }

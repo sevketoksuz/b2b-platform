@@ -1,7 +1,6 @@
 package com.b2b.order.api.exception;
 
 import com.b2b.order.api.response.ApiErrorResponse;
-import com.b2b.order.application.exception.InventoryClientException;
 import com.b2b.order.application.exception.OrderNotFoundException;
 import com.b2b.order.domain.exception.OrderDomainException;
 import org.springframework.http.HttpStatus;
@@ -43,20 +42,6 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-    }
-
-    @ExceptionHandler(InventoryClientException.class)
-    public ResponseEntity<ApiErrorResponse> handleInventoryClientException(
-            InventoryClientException exception
-    ) {
-        ApiErrorResponse response = new ApiErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.BAD_GATEWAY.value(),
-                HttpStatus.BAD_GATEWAY.getReasonPhrase(),
-                List.of(exception.getMessage())
-        );
-
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMqOrderConfig {
 
     public static final String ORDER_EXCHANGE = "b2b.order.exchange";
-    public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
+    public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.confirmed";
 
     @Bean
     public DirectExchange orderExchange() {

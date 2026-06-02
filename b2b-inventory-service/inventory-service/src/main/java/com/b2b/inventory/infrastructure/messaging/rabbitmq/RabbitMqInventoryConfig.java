@@ -13,8 +13,8 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMqInventoryConfig {
 
     public static final String ORDER_EXCHANGE = "b2b.order.exchange";
-    public static final String ORDER_CREATED_QUEUE = "inventory.order-created.queue";
-    public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
+    public static final String ORDER_CONFIRMED_QUEUE = "inventory.order-confirmed.queue";
+    public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.confirmed";
 
     @Bean
     public DirectExchange orderExchange() {
@@ -22,16 +22,16 @@ public class RabbitMqInventoryConfig {
     }
 
     @Bean
-    public Queue orderCreatedQueue() {
-        return new Queue(ORDER_CREATED_QUEUE, true);
+    public Queue orderConfirmedQueue() {
+        return new Queue(ORDER_CONFIRMED_QUEUE, true);
     }
 
     @Bean
-    public Binding orderCreatedBinding() {
+    public Binding orderConfirmedBinding() {
         return BindingBuilder
-                .bind(orderCreatedQueue())
+                .bind(orderConfirmedQueue())
                 .to(orderExchange())
-                .with(ORDER_CREATED_ROUTING_KEY);
+                .with(ORDER_CONFIRMED_ROUTING_KEY);
     }
 
     @Bean

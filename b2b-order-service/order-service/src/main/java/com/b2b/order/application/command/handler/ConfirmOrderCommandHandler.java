@@ -4,10 +4,9 @@ import com.b2b.order.application.command.dto.ChangeOrderStatusResult;
 import com.b2b.order.application.command.dto.ConfirmOrderCommand;
 import com.b2b.order.application.exception.OrderNotFoundException;
 import com.b2b.order.application.port.in.ConfirmOrderUseCase;
-import com.b2b.order.application.port.out.InventoryClientPort;
+import com.b2b.order.application.port.out.OrderEventPublisherPort;
 import com.b2b.order.application.port.out.OrderRepositoryPort;
 import com.b2b.order.domain.model.Order;
-import com.b2b.order.domain.model.OrderItem;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConfirmOrderCommandHandler implements ConfirmOrderUseCase {
 
     private final OrderRepositoryPort orderRepositoryPort;
-    private final InventoryClientPort inventoryClientPort;
+    private final OrderEventPublisherPort orderEventPublisherPort;
 
     public ConfirmOrderCommandHandler(
             OrderRepositoryPort orderRepositoryPort,
-            InventoryClientPort inventoryClientPort
+            OrderEventPublisherPort orderEventPublisherPort
     ) {
         this.orderRepositoryPort = orderRepositoryPort;
-        this.inventoryClientPort = inventoryClientPort;
+        this.orderEventPublisherPort = orderEventPublisherPort;
     }
 
     @Override
@@ -35,22 +34,11 @@ public class ConfirmOrderCommandHandler implements ConfirmOrderUseCase {
 
         order.confirm();
 
-        decreaseStocks(order);
-
         Order savedOrder = orderRepositoryPort.save(order);
 
-        return toResult(savedOrder);
-    }
+        orderEventPublisherPort.publishOrderConfirmed(savedOrder);
 
-    private void decreaseStocks(Order order) {
-        for (OrderItem item : order.getItems()) {
-            inventoryClientPort.decreaseStock(
-                    order.getSellerCompanyId(),
-                    item.getProductId(),
-                    item.getQuantity().getValue(),
-                    "Order confirmed: " + order.getId()
-            );
-        }
+        return toResult(savedOrder);
     }
 
     private ChangeOrderStatusResult toResult(Order order) {

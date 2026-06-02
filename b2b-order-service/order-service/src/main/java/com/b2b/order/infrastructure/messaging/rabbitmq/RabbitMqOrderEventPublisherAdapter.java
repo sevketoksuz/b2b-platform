@@ -1,7 +1,7 @@
 package com.b2b.order.infrastructure.messaging.rabbitmq;
 
-import com.b2b.order.application.event.OrderCreatedEvent;
-import com.b2b.order.application.event.OrderCreatedEventItem;
+import com.b2b.order.application.event.OrderConfirmedEvent;
+import com.b2b.order.application.event.OrderConfirmedEventItem;
 import com.b2b.order.application.port.out.OrderEventPublisherPort;
 import com.b2b.order.domain.model.Order;
 import com.b2b.order.domain.model.OrderItem;
@@ -20,34 +20,34 @@ public class RabbitMqOrderEventPublisherAdapter implements OrderEventPublisherPo
     }
 
     @Override
-    public void publishOrderCreated(Order order) {
-        OrderCreatedEvent event = toEvent(order);
+    public void publishOrderConfirmed(Order order) {
+        OrderConfirmedEvent event = toEvent(order);
 
         rabbitTemplate.convertAndSend(
                 RabbitMqOrderConfig.ORDER_EXCHANGE,
-                RabbitMqOrderConfig.ORDER_CREATED_ROUTING_KEY,
+                RabbitMqOrderConfig.ORDER_CONFIRMED_ROUTING_KEY,
                 event
         );
     }
 
-    private OrderCreatedEvent toEvent(Order order) {
-        return new OrderCreatedEvent(
+    private OrderConfirmedEvent toEvent(Order order) {
+        return new OrderConfirmedEvent(
                 order.getId(),
                 order.getBuyerCompanyId(),
                 order.getSellerCompanyId(),
                 toEventItems(order.getItems()),
-                order.getCreatedAt()
+                order.getConfirmedAt()
         );
     }
 
-    private List<OrderCreatedEventItem> toEventItems(List<OrderItem> items) {
+    private List<OrderConfirmedEventItem> toEventItems(List<OrderItem> items) {
         return items.stream()
                 .map(this::toEventItem)
                 .toList();
     }
 
-    private OrderCreatedEventItem toEventItem(OrderItem item) {
-        return new OrderCreatedEventItem(
+    private OrderConfirmedEventItem toEventItem(OrderItem item) {
+        return new OrderConfirmedEventItem(
                 item.getProductId(),
                 item.getProductName(),
                 item.getQuantity().getValue(),
