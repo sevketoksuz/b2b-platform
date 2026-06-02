@@ -5,6 +5,7 @@ import com.b2b.order.application.command.dto.CreateOrderItemCommand;
 import com.b2b.order.application.command.dto.CreateOrderResult;
 import com.b2b.order.application.command.dto.OrderItemResult;
 import com.b2b.order.application.port.in.CreateOrderUseCase;
+import com.b2b.order.application.port.out.OrderEventPublisherPort;
 import com.b2b.order.application.port.out.OrderRepositoryPort;
 import com.b2b.order.domain.model.Order;
 import com.b2b.order.domain.model.OrderItem;
@@ -19,9 +20,14 @@ import java.util.List;
 public class CreateOrderCommandHandler implements CreateOrderUseCase {
 
     private final OrderRepositoryPort orderRepositoryPort;
+    private final OrderEventPublisherPort orderEventPublisherPort;
 
-    public CreateOrderCommandHandler(OrderRepositoryPort orderRepositoryPort) {
+    public CreateOrderCommandHandler(
+            OrderRepositoryPort orderRepositoryPort,
+            OrderEventPublisherPort orderEventPublisherPort
+    ) {
         this.orderRepositoryPort = orderRepositoryPort;
+        this.orderEventPublisherPort = orderEventPublisherPort;
     }
 
     @Override
@@ -36,6 +42,8 @@ public class CreateOrderCommandHandler implements CreateOrderUseCase {
         );
 
         Order savedOrder = orderRepositoryPort.save(order);
+
+        orderEventPublisherPort.publishOrderCreated(savedOrder);
 
         return toResult(savedOrder);
     }

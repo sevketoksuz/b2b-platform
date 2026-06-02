@@ -4,6 +4,7 @@ import com.b2b.order.application.command.dto.CreateOrderCommand;
 import com.b2b.order.application.command.dto.CreateOrderItemCommand;
 import com.b2b.order.application.command.dto.CreateOrderResult;
 import com.b2b.order.application.port.out.OrderRepositoryPort;
+import com.b2b.order.application.port.out.OrderEventPublisherPort;
 import com.b2b.order.domain.enumtype.OrderStatus;
 import com.b2b.order.domain.exception.OrderDomainException;
 import com.b2b.order.domain.model.Order;
@@ -22,12 +23,14 @@ import static org.mockito.Mockito.*;
 class CreateOrderCommandHandlerTest {
 
     private OrderRepositoryPort orderRepositoryPort;
+    private OrderEventPublisherPort orderEventPublisherPort;
     private CreateOrderCommandHandler handler;
 
     @BeforeEach
     void setUp() {
         orderRepositoryPort = mock(OrderRepositoryPort.class);
-        handler = new CreateOrderCommandHandler(orderRepositoryPort);
+        orderEventPublisherPort = mock(OrderEventPublisherPort.class);
+        handler = new CreateOrderCommandHandler(orderRepositoryPort, orderEventPublisherPort);
     }
 
     @Test
@@ -72,6 +75,7 @@ class CreateOrderCommandHandlerTest {
         assertEquals(new BigDecimal("1500"), result.items().getFirst().lineTotalAmount());
 
         verify(orderRepositoryPort).save(any(Order.class));
+        verify(orderEventPublisherPort).publishOrderCreated(any(Order.class));
     }
 
     @Test
@@ -102,6 +106,7 @@ class CreateOrderCommandHandlerTest {
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
         verify(orderRepositoryPort).save(orderCaptor.capture());
+        verify(orderEventPublisherPort).publishOrderCreated(any(Order.class));
 
         Order savedOrder = orderCaptor.getValue();
 
@@ -130,6 +135,7 @@ class CreateOrderCommandHandlerTest {
         assertEquals("Order must contain at least one item.", exception.getMessage());
 
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderCreated(any(Order.class));
     }
 
     @Test
@@ -148,6 +154,7 @@ class CreateOrderCommandHandlerTest {
         assertEquals("Order must contain at least one item.", exception.getMessage());
 
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderCreated(any(Order.class));
     }
 
     @Test
@@ -176,6 +183,7 @@ class CreateOrderCommandHandlerTest {
         assertEquals("Buyer company and seller company cannot be same.", exception.getMessage());
 
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderCreated(any(Order.class));
     }
 
     @Test
@@ -211,6 +219,7 @@ class CreateOrderCommandHandlerTest {
         assertEquals("Order cannot contain duplicate product items.", exception.getMessage());
 
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderCreated(any(Order.class));
     }
 
     @Test
@@ -244,5 +253,6 @@ class CreateOrderCommandHandlerTest {
         assertEquals("All order items must have same currency.", exception.getMessage());
 
         verify(orderRepositoryPort, never()).save(any(Order.class));
+        verify(orderEventPublisherPort, never()).publishOrderCreated(any(Order.class));
     }
 }
