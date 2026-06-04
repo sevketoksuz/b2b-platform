@@ -1,7 +1,7 @@
 package com.b2b.inventory.infrastructure.messaging.rabbitmq;
 
-import com.b2b.inventory.application.command.dto.DecreaseStockCommand;
-import com.b2b.inventory.application.port.in.DecreaseStockUseCase;
+import com.b2b.inventory.application.command.dto.ProcessOrderConfirmedItemCommand;
+import com.b2b.inventory.application.port.in.ProcessOrderConfirmedItemUseCase;
 import com.b2b.inventory.infrastructure.messaging.rabbitmq.event.OrderConfirmedEvent;
 import com.b2b.inventory.infrastructure.messaging.rabbitmq.event.OrderConfirmedEventItem;
 import org.slf4j.Logger;
@@ -14,10 +14,10 @@ public class OrderConfirmedRabbitListener {
 
     private static final Logger log = LoggerFactory.getLogger(OrderConfirmedRabbitListener.class);
 
-    private final DecreaseStockUseCase decreaseStockUseCase;
+    private final ProcessOrderConfirmedItemUseCase processOrderConfirmedItemUseCase;
 
-    public OrderConfirmedRabbitListener(DecreaseStockUseCase decreaseStockUseCase) {
-        this.decreaseStockUseCase = decreaseStockUseCase;
+    public OrderConfirmedRabbitListener(ProcessOrderConfirmedItemUseCase processOrderConfirmedItemUseCase) {
+        this.processOrderConfirmedItemUseCase = processOrderConfirmedItemUseCase;
     }
 
     @RabbitListener(queues = RabbitMqInventoryConfig.ORDER_CONFIRMED_QUEUE)
@@ -30,25 +30,25 @@ public class OrderConfirmedRabbitListener {
                 event.items().size()
         );
 
-        event.items().forEach(item -> decreaseStock(event, item));
+        event.items().forEach(item -> processItem(event, item));
     }
 
-    private void decreaseStock(OrderConfirmedEvent event, OrderConfirmedEventItem item) {
+    private void processItem(OrderConfirmedEvent event, OrderConfirmedEventItem item) {
         log.info(
-                "Decreasing stock from order confirmed event. orderId={}, sellerCompanyId={}, productId={}, quantity={}",
+                "Processing order confirmed item event. orderId={}, sellerCompanyId={}, productId={}, quantity={}",
                 event.orderId(),
                 event.sellerCompanyId(),
                 item.productId(),
                 item.quantity()
         );
 
-        DecreaseStockCommand command = new DecreaseStockCommand(
+        ProcessOrderConfirmedItemCommand command = new ProcessOrderConfirmedItemCommand(
+                event.orderId(),
                 event.sellerCompanyId(),
                 item.productId(),
-                item.quantity(),
-                "ORDER_CONFIRMED: " + event.orderId()
+                item.quantity()
         );
 
-        decreaseStockUseCase.handle(command);
+        processOrderConfirmedItemUseCase.handle(command);
     }
 }
